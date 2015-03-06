@@ -59,7 +59,10 @@ import static com.carrotsearch.hppc.HashContainerUtils.*;
 /*! ${TemplateOptions.generatedAnnotation} !*/
 public class KTypeOpenHashSet<KType>
     extends AbstractKTypeCollection<KType> 
-    implements KTypeLookupContainer<KType>, KTypeSet<KType>, Cloneable
+    implements KTypeLookupContainer<KType>, 
+               KTypeSet<KType>, 
+               Cloneable,
+               LinearHashOrderedContainer
 {
     /**
      * Minimum capacity for the map.
@@ -129,14 +132,6 @@ public class KTypeOpenHashSet<KType>
     protected int lastSlot;
     
     /**
-     * We perturb hashed values with the array size to avoid problems with
-     * nearly-sorted-by-hash values on iterations.
-     * 
-     * @see "http://issues.carrot2.org/browse/HPPC-80"
-     */
-    protected int perturbation;
-
-    /**
      * Creates a hash set with the default capacity of {@value #DEFAULT_CAPACITY},
      * load factor of {@value #DEFAULT_LOAD_FACTOR}.
 `     */
@@ -188,7 +183,7 @@ public class KTypeOpenHashSet<KType>
         assert assigned < allocated.length;
 
         final int mask = allocated.length - 1;
-        int slot = rehash(e, perturbation) & mask;
+        int slot = rehash(e) & mask;
         while (allocated[slot])
         {
             if (Intrinsics.equalsKType(e, keys[slot]))
@@ -230,7 +225,9 @@ public class KTypeOpenHashSet<KType>
      * @return Returns the number of elements that were added to the set
      * (were not present in the set).
      */
-    public int add(KType... elements)
+    public int add(
+        /* #if ($TemplateOptions.KTypeGeneric) */ @SuppressWarnings("unchecked") /* #end */
+        KType... elements)
     {
         int count = 0;
         for (KType e : elements)
@@ -298,7 +295,7 @@ public class KTypeOpenHashSet<KType>
             {
                 final KType k = oldKeys[i];
 
-                int slot = rehash(k, perturbation) & mask;
+                int slot = rehash(k) & mask;
                 while (allocated[slot])
                 {
                     slot = (slot + 1) & mask;
@@ -327,25 +324,6 @@ public class KTypeOpenHashSet<KType>
         this.allocated = allocated;
 
         this.resizeAt = Math.max(2, (int) Math.ceil(capacity * loadFactor)) - 1;
-        this.perturbation = computePerturbationValue(capacity);
-    }
-
-    /**
-     * <p>Compute the key perturbation value applied before hashing. The returned value
-     * should be non-zero and ideally different for each capacity. This matters because
-     * keys are nearly-ordered by their hashed values so when adding one container's
-     * values to the other, the number of collisions can skyrocket into the worst case
-     * possible.
-     * 
-     * <p>If it is known that hash containers will not be added to each other 
-     * (will be used for counting only, for example) then some speed can be gained by 
-     * not perturbing keys before hashing and returning a value of zero for all possible
-     * capacities. The speed gain is a result of faster rehash operation (keys are mostly
-     * in order).   
-     */
-    protected int computePerturbationValue(int capacity)
-    {
-        return PERTURBATIONS[Integer.numberOfLeadingZeros(capacity)];
     }
 
     /**
@@ -363,7 +341,7 @@ public class KTypeOpenHashSet<KType>
     public boolean remove(KType key)
     {
         final int mask = allocated.length - 1;
-        int slot = rehash(key, perturbation) & mask; 
+        int slot = rehash(key) & mask; 
 
         while (allocated[slot])
         {
@@ -393,7 +371,7 @@ public class KTypeOpenHashSet<KType>
 
             while (allocated[slotCurr])
             {
-                slotOther = rehash(keys[slotCurr], perturbation) & mask;
+                slotOther = rehash(keys[slotCurr]) & mask;
                 if (slotPrev <= slotCurr)
                 {
                     // We are on the right of the original slot.
@@ -463,7 +441,7 @@ public class KTypeOpenHashSet<KType>
     public boolean contains(KType key)
     {
         final int mask = allocated.length - 1;
-        int slot = rehash(key, perturbation) & mask;
+        int slot = rehash(key) & mask;
         while (allocated[slot])
         {
             if (Intrinsics.equalsKType(key, keys[slot]))
@@ -710,11 +688,18 @@ public class KTypeOpenHashSet<KType>
         return before - this.assigned;
     }
 
+    @Override
+    public int keySlots() {
+      return this.keys.length;
+    }
+    
     /**
      * Create a set from a variable number of arguments or an array of <code>KType</code>.
      * The elements are copied from the argument to the internal buffer.
      */
-    public static <KType> KTypeOpenHashSet<KType> from(KType... elements)
+    public static <KType> KTypeOpenHashSet<KType> from(
+        /* #if ($TemplateOptions.KTypeGeneric) */ @SuppressWarnings("unchecked") /* #end */
+        KType... elements)
     {
         final KTypeOpenHashSet<KType> set = new KTypeOpenHashSet<KType>(
             (int) (elements.length * (1 + DEFAULT_LOAD_FACTOR)));
@@ -737,19 +722,6 @@ public class KTypeOpenHashSet<KType>
     public static <KType> KTypeOpenHashSet<KType> newInstance()
     {
         return new KTypeOpenHashSet<KType>();
-    }
-
-    /**
-     * Returns a new object with no key perturbations (see
-     * {@link #computePerturbationValue(int)}). Only use when sure the container will not
-     * be used for direct copying of keys to another hash container.
-     */
-    public static <KType> KTypeOpenHashSet<KType> newInstanceWithoutPerturbations()
-    {
-        return new KTypeOpenHashSet<KType>() {
-            @Override
-            protected int computePerturbationValue(int capacity) { return 0; }
-        };
     }
 
     /**

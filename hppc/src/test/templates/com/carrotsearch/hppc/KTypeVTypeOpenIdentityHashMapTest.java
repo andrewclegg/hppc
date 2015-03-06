@@ -70,7 +70,8 @@ public class KTypeVTypeOpenIdentityHashMapTest<KType, VType> extends AbstractKTy
     /**
      * Create a new array of a given type and copy the arguments to this array.
      */
-    protected VType [] newvArray(@SuppressWarnings("unchecked") VType... elements)
+    /* #if ($TemplateOptions.VTypeGeneric) */ @SuppressWarnings("unchecked") /* #end */
+    protected VType [] newvArray(VType... elements)
     {
         return elements;
     }
@@ -504,46 +505,6 @@ public class KTypeVTypeOpenIdentityHashMapTest<KType, VType> extends AbstractKTy
 
         assertFalse(l1.equals(l3));
         assertFalse(l2.equals(l3));
-    }
-
-    /* */
-    @Test
-    /*! #if ($TemplateOptions.VTypeGeneric) !*/
-    @SuppressWarnings("unchecked")
-    /*! #end !*/
-    public void testHashCodeEqualsDifferentPerturbance()
-    {
-        KTypeVTypeOpenIdentityHashMap<KType, VType> l0 = 
-            new KTypeVTypeOpenIdentityHashMap<KType, VType>() {
-            @Override
-            protected int computePerturbationValue(int capacity)
-            {
-                return 0xDEADBEEF;
-            }
-        };
-
-        KTypeVTypeOpenIdentityHashMap<KType, VType> l1 = 
-            new KTypeVTypeOpenIdentityHashMap<KType, VType>() {
-            @Override
-            protected int computePerturbationValue(int capacity)
-            {
-                return 0xCAFEBABE;
-            }
-        };
-        
-        assertEquals(0, l0.hashCode());
-        assertEquals(l0.hashCode(), l1.hashCode());
-        assertEquals(l0, l1);
-
-        KTypeVTypeOpenIdentityHashMap<KType, VType> l2 = KTypeVTypeOpenIdentityHashMap.from(
-            newArray(key1, key2, key3),
-            newvArray(value1, value2, value3));
-
-        l0.putAll(l2);
-        l1.putAll(l2);
-
-        assertEquals(l0.hashCode(), l1.hashCode());
-        assertEquals(l0, l1);
     }
 
     /*! #if ($TemplateOptions.VTypeGeneric) !*/

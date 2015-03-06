@@ -45,7 +45,9 @@ import static com.carrotsearch.hppc.HashContainerUtils.*;
  */
 /*! ${TemplateOptions.generatedAnnotation} !*/
 public class KTypeVTypeOpenIdentityHashMap<KType, VType>
-    implements KTypeVTypeMap<KType, VType>, Cloneable
+    implements KTypeVTypeMap<KType, VType>, 
+               Cloneable,
+               LinearHashOrderedContainer
 {
     /**
      * Minimum capacity for the map.
@@ -133,14 +135,6 @@ public class KTypeVTypeOpenIdentityHashMap<KType, VType>
     protected int lastSlot;
     
     /**
-     * We perturb hashed values with the array size to avoid problems with
-     * nearly-sorted-by-hash values on iterations.
-     * 
-     * @see "http://issues.carrot2.org/browse/HPPC-80"
-     */
-    protected int perturbation;
-
-    /**
      * Creates a hash map with the default capacity of {@value #DEFAULT_CAPACITY},
      * load factor of {@value #DEFAULT_LOAD_FACTOR}.
      * 
@@ -207,7 +201,7 @@ public class KTypeVTypeOpenIdentityHashMap<KType, VType>
         assert assigned < allocated.length;
 
         final int mask = allocated.length - 1;
-        int slot = rehash(System.identityHashCode(key), perturbation) & mask;
+        int slot = rehash(System.identityHashCode(key)) & mask;
         while (allocated[slot])
         {
             if (key == keys[slot])
@@ -240,12 +234,7 @@ public class KTypeVTypeOpenIdentityHashMap<KType, VType>
     public int putAll(
         KTypeVTypeAssociativeContainer<? extends KType, ? extends VType> container)
     {
-        final int count = this.assigned;
-        for (KTypeVTypeCursor<? extends KType, ? extends VType> c : container)
-        {
-            put(c.key, c.value);
-        }
-        return this.assigned - count;
+      return putAll((Iterable<? extends KTypeVTypeCursor<? extends KType, ? extends VType>>) container);
     }
 
     /**
@@ -317,7 +306,7 @@ public class KTypeVTypeOpenIdentityHashMap<KType, VType>
         assert assigned < allocated.length;
 
         final int mask = allocated.length - 1;
-        int slot = rehash(System.identityHashCode(key), perturbation) & mask;
+        int slot = rehash(System.identityHashCode(key)) & mask;
         while (allocated[slot])
         {
             if (key == keys[slot])
@@ -405,7 +394,7 @@ public class KTypeVTypeOpenIdentityHashMap<KType, VType>
                 final KType k = oldKeys[i];
                 final VType v = oldValues[i];
 
-                int slot = rehash(System.identityHashCode(k), perturbation) & mask;
+                int slot = rehash(System.identityHashCode(k)) & mask;
                 while (allocated[slot])
                 {
                     slot = (slot + 1) & mask;
@@ -437,25 +426,6 @@ public class KTypeVTypeOpenIdentityHashMap<KType, VType>
         this.allocated = allocated;
 
         this.resizeAt = Math.max(2, (int) Math.ceil(capacity * loadFactor)) - 1;
-        this.perturbation = computePerturbationValue(capacity);
-    }
-
-    /**
-     * <p>Compute the key perturbation value applied before hashing. The returned value
-     * should be non-zero and ideally different for each capacity. This matters because
-     * keys are nearly-ordered by their hashed values so when adding one container's
-     * values to the other, the number of collisions can skyrocket into the worst case
-     * possible.
-     * 
-     * <p>If it is known that hash containers will not be added to each other 
-     * (will be used for counting only, for example) then some speed can be gained by 
-     * not perturbing keys before hashing and returning a value of zero for all possible
-     * capacities. The speed gain is a result of faster rehash operation (keys are mostly
-     * in order).   
-     */
-    protected int computePerturbationValue(int capacity)
-    {
-        return PERTURBATIONS[Integer.numberOfLeadingZeros(capacity)];
     }
 
     /**
@@ -465,7 +435,7 @@ public class KTypeVTypeOpenIdentityHashMap<KType, VType>
     public VType remove(KType key)
     {
         final int mask = allocated.length - 1;
-        int slot = rehash(System.identityHashCode(key), perturbation) & mask; 
+        int slot = rehash(System.identityHashCode(key)) & mask; 
         while (allocated[slot])
         {
             if (key == keys[slot])
@@ -495,7 +465,7 @@ public class KTypeVTypeOpenIdentityHashMap<KType, VType>
 
             while (allocated[slotCurr])
             {
-                slotOther = rehash(System.identityHashCode(keys[slotCurr]), perturbation) & mask;
+                slotOther = rehash(System.identityHashCode(keys[slotCurr])) & mask;
                 if (slotPrev <= slotCurr)
                 {
                     // We are on the right of the original slot.
@@ -595,7 +565,7 @@ public class KTypeVTypeOpenIdentityHashMap<KType, VType>
         // getOrDefault(key, Intrinsics.<VType> defaultVTypeValue())
         // but let's keep it duplicated for VMs that don't have advanced inlining.
         final int mask = allocated.length - 1;
-        int slot = rehash(System.identityHashCode(key), perturbation) & mask;
+        int slot = rehash(System.identityHashCode(key)) & mask;
         while (allocated[slot])
         {
             if (key == keys[slot])
@@ -615,7 +585,7 @@ public class KTypeVTypeOpenIdentityHashMap<KType, VType>
     public VType getOrDefault(KType key, VType defaultValue)
     {
         final int mask = allocated.length - 1;
-        int slot = rehash(System.identityHashCode(key), perturbation) & mask;
+        int slot = rehash(System.identityHashCode(key)) & mask;
         while (allocated[slot])
         {
             if (key == keys[slot])
@@ -724,7 +694,7 @@ public class KTypeVTypeOpenIdentityHashMap<KType, VType>
     public boolean containsKey(KType key)
     {
         final int mask = allocated.length - 1;
-        int slot = rehash(System.identityHashCode(key), perturbation) & mask;
+        int slot = rehash(System.identityHashCode(key)) & mask;
         while (allocated[slot])
         {
             if (key == keys[slot])
@@ -854,7 +824,7 @@ public class KTypeVTypeOpenIdentityHashMap<KType, VType>
         private final KTypeVTypeCursor<KType, VType> cursor;
 
         public EntryIterator()
-        {
+        {  
             cursor = new KTypeVTypeCursor<KType, VType>();
             cursor.index = -1;
         }
@@ -922,11 +892,10 @@ public class KTypeVTypeOpenIdentityHashMap<KType, VType>
      * still be based on reference-equality! 
      */
     public final class KeysContainer 
-        extends AbstractKTypeCollection<KType> implements KTypeLookupContainer<KType>
+        extends AbstractKTypeCollection<KType> 
+        implements KTypeLookupContainer<KType>,
+                   LinearHashOrderedContainer
     {
-        private final KTypeVTypeOpenIdentityHashMap<KType, VType> owner = 
-            KTypeVTypeOpenIdentityHashMap.this;
-        
         @Override
         public boolean contains(KType e)
         {
@@ -936,8 +905,8 @@ public class KTypeVTypeOpenIdentityHashMap<KType, VType>
         @Override
         public <T extends KTypeProcedure<? super KType>> T forEach(T procedure)
         {
-            final KType [] localKeys = owner.keys;
-            final boolean [] localStates = owner.allocated;
+            final KType [] localKeys = KTypeVTypeOpenIdentityHashMap.this.keys;
+            final boolean [] localStates = KTypeVTypeOpenIdentityHashMap.this.allocated;
 
             for (int i = 0; i < localStates.length; i++)
             {
@@ -951,8 +920,8 @@ public class KTypeVTypeOpenIdentityHashMap<KType, VType>
         @Override
         public <T extends KTypePredicate<? super KType>> T forEach(T predicate)
         {
-            final KType [] localKeys = owner.keys;
-            final boolean [] localStates = owner.allocated;
+            final KType [] localKeys = KTypeVTypeOpenIdentityHashMap.this.keys;
+            final boolean [] localStates = KTypeVTypeOpenIdentityHashMap.this.allocated;
 
             for (int i = 0; i < localStates.length; i++)
             {
@@ -969,7 +938,7 @@ public class KTypeVTypeOpenIdentityHashMap<KType, VType>
         @Override
         public boolean isEmpty()
         {
-            return owner.isEmpty();
+            return KTypeVTypeOpenIdentityHashMap.this.isEmpty();
         }
 
         @Override
@@ -981,32 +950,37 @@ public class KTypeVTypeOpenIdentityHashMap<KType, VType>
         @Override
         public int size()
         {
-            return owner.size();
+            return KTypeVTypeOpenIdentityHashMap.this.size();
         }
 
         @Override
         public void clear()
         {
-            owner.clear();
+          KTypeVTypeOpenIdentityHashMap.this.clear();
         }
 
         @Override
         public int removeAll(KTypePredicate<? super KType> predicate)
         {
-            return owner.removeAll(predicate);
+            return KTypeVTypeOpenIdentityHashMap.this.removeAll(predicate);
         }
 
         @Override
         public int removeAllOccurrences(final KType e)
         {
-            final boolean hasKey = owner.containsKey(e);
+            final boolean hasKey = KTypeVTypeOpenIdentityHashMap.this.containsKey(e);
             int result = 0;
             if (hasKey)
             {
-                owner.remove(e);
+                KTypeVTypeOpenIdentityHashMap.this.remove(e);
                 result = 1;
             }
             return result;
+        }
+
+        @Override
+        public int keySlots() {
+          return keys.length;
         }
     };
     
@@ -1237,6 +1211,11 @@ public class KTypeVTypeOpenIdentityHashMap<KType, VType>
         return buffer.toString();
     }
 
+    @Override
+    public int keySlots() {
+      return keys.length;
+    }
+
     /**
      * Creates a hash map from two index-aligned arrays of key-value pairs. 
      */
@@ -1268,19 +1247,6 @@ public class KTypeVTypeOpenIdentityHashMap<KType, VType>
     public static <KType, VType> KTypeVTypeOpenIdentityHashMap<KType, VType> newInstance()
     {
         return new KTypeVTypeOpenIdentityHashMap<KType, VType>();
-    }
-
-    /**
-     * Returns a new object with no key perturbations (see
-     * {@link #computePerturbationValue(int)}). Only use when sure the container will not
-     * be used for direct copying of keys to another hash container.
-     */
-    public static <KType, VType> KTypeVTypeOpenIdentityHashMap<KType, VType> newInstanceWithoutPerturbations()
-    {
-        return new KTypeVTypeOpenIdentityHashMap<KType, VType>() {
-            @Override
-            protected int computePerturbationValue(int capacity) { return 0; }
-        };
     }
 
     /**
